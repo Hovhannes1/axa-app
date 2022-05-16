@@ -1,4 +1,4 @@
-import {Component, ViewChild, ViewEncapsulation} from '@angular/core';
+import {Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation} from '@angular/core';
 import {MatPaginator} from "@angular/material/paginator";
 import {MatTableDataSource} from "@angular/material/table";
 import {MatSort} from "@angular/material/sort";
@@ -6,10 +6,9 @@ import {HttpClient} from "@angular/common/http";
 import {MatSidenav} from "@angular/material/sidenav";
 
 import * as am5 from '@amcharts/amcharts5';
+import {Root} from '@amcharts/amcharts5';
 import * as am5hierarchy from '@amcharts/amcharts5/hierarchy';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
-import {Root} from "@amcharts/amcharts5";
-import {CdkDragDrop, moveItemInArray} from "@angular/cdk/drag-drop";
 
 export interface BrastlewarkData {
   id: string;
@@ -30,7 +29,7 @@ export interface Professions {
   styleUrls: ['./app.component.scss'],
   encapsulation: ViewEncapsulation.None
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'axa-app';
 
   displayedColumns: string[] = ['id', 'name', 'age', 'height', 'weight', 'hair_color', 'action'];
@@ -44,9 +43,12 @@ export class AppComponent {
   showFriends: Root | any;
   public data: any = [];
   public reason = '';
-  public isMobile:boolean  = false;
-  public selectedItemIndex:number = -1;
+  public isMobile: boolean = false;
+  public selectedItemIndex: number = -1;
   public professions: Professions[] = [];
+  private friendsSeries: any = {};
+
+  private _subscriptions: any = [];
 
   constructor(private http: HttpClient) {
     this.dataSource = new MatTableDataSource();
@@ -84,24 +86,24 @@ export class AppComponent {
   getData() {
     const url = 'https://raw.githubusercontent.com/rrafols/mobile_test/master/data.json';
     try {
-      this.http.get(url).subscribe((res:any) => {
+      this._subscriptions.push(this.http.get(url).subscribe((res: any) => {
         this.data = res.Brastlewark;
         this.dataSource = new MatTableDataSource(this.data);
         this.dataSource.paginator = this.paginator;
         this.dataSource.sort = this.sort;
 
         this.preloadingImages();
-      })
+      }));
     } catch (e) {
       console.error(e);
     }
   }
 
   preloadingImages() {
-    let uniqImages:any = {};
+    let uniqImages: any = {};
     // find uniq images in data thumbnail and save in uniqImages
     let ind = 0;
-    this.data.forEach((item:any) => {
+    this.data.forEach((item: any) => {
       if (!uniqImages.hasOwnProperty(item.thumbnail)) {
         uniqImages[item.thumbnail] = ind;
         ind++;
@@ -109,9 +111,7 @@ export class AppComponent {
     });
     // preload images from uniqImages
     for (let key in uniqImages) {
-      try {
-        this.http.get(key).subscribe((res:any) => {}).unsubscribe();
-      } catch (e) {}
+      this.http.get(key).subscribe().unsubscribe();
     }
   }
 
@@ -124,20 +124,19 @@ export class AppComponent {
     this.selectedItemIndex = index;
     this.sidenav.open();
     setTimeout(() => {
-    this.loadCharacterFriends();
+      this.loadCharacterFriends();
     }, 500);
     this.loadCharacterProfessions();
   }
 
   loadCharacterProfessions() {
     this.professions = [];
-    this.data[this.selectedItemIndex].professions.forEach((item:any) => {
+    this.data[this.selectedItemIndex].professions.forEach((item: any) => {
       this.professions.push({profession: item});
     });
   }
 
   loadCharacterFriends() {
-    let series;
     if (!this.showFriends) {
       this.showFriends = am5.Root.new("chartdiv");
 
@@ -151,7 +150,7 @@ export class AppComponent {
         layout: this.showFriends.verticalLayout
       }));
 
-      series = container.children.push(am5hierarchy.ForceDirected.new(this.showFriends, {
+      this.friendsSeries = container.children.push(am5hierarchy.ForceDirected.new(this.showFriends, {
         singleBranchOnly: false,
         downDepth: 1,
         topDepth: 1,
@@ -167,39 +166,38 @@ export class AppComponent {
         centerStrength: 0.1
       }));
 
-      series.get("colors")?.setAll({
+      this.friendsSeries.get("colors")?.setAll({
         step: 2
       });
 
-      series.links.template.set("strength", 0.5);
+      this.friendsSeries.links.template.set("strength", 0.5);
     }
 
     let data = {
-      value:10,
+      value: 10,
       children: [
         {
           name: this.data[this.selectedItemIndex].name,
-          value: Math.floor(this.data[this.selectedItemIndex].weight * 100 ) / 100,
+          value: Math.floor(this.data[this.selectedItemIndex].weight * 100) / 100,
           children: []
         }
       ]
     };
 
-    this.data[this.selectedItemIndex].friends.forEach((friend:string) => {
+    this.data[this.selectedItemIndex].friends.forEach((friend: string) => {
       data.children[0].children.push({
         // @ts-ignore
         name: friend,
         // @ts-ignore
-        value: Math.floor(this.data.find((item:any) => item.name === friend).weight * 100 ) / 100
+        value: Math.floor(this.data.find((item: any) => item.name === friend).weight * 100) / 100
       });
     });
 
-    series.data.clear();
-    series.data.setAll([data]);
+    this.friendsSeries.data.setAll([]);
+    this.friendsSeries.data.setAll([data]);
+    this.friendsSeries.set("selectedDataItem", this.friendsSeries.dataItems[0]);
 
-    series.set("selectedDataItem", series.dataItems[0]);
-
-    series.appear(320, 100);
+    this.friendsSeries.appear(320, 100);
   }
 
   ngAfterViewInit() {
@@ -215,5 +213,10 @@ export class AppComponent {
       this.dataSource.paginator.firstPage();
     }
   }
-}
 
+  ngOnDestroy(): void {
+    this._subscriptions.forEach((item: any) => {
+      item.unsubscribe();
+    });
+  }
+}
