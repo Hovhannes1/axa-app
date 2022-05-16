@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
+  "directories": { "output": "release/" },
   "private": true,
   "dependencies": {
     "@amcharts/amcharts5": "^5.2.3",

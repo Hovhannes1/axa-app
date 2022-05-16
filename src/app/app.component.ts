@@ -47,6 +47,7 @@ export class AppComponent {
   public isMobile:boolean  = false;
   public selectedItemIndex:number = -1;
   public professions: Professions[] = [];
+  private friendsSeries:any = {};
 
   constructor(private http: HttpClient) {
     this.dataSource = new MatTableDataSource();
@@ -137,7 +138,6 @@ export class AppComponent {
   }
 
   loadCharacterFriends() {
-    let series;
     if (!this.showFriends) {
       this.showFriends = am5.Root.new("chartdiv");
 
@@ -151,7 +151,7 @@ export class AppComponent {
         layout: this.showFriends.verticalLayout
       }));
 
-      series = container.children.push(am5hierarchy.ForceDirected.new(this.showFriends, {
+      this.friendsSeries = container.children.push(am5hierarchy.ForceDirected.new(this.showFriends, {
         singleBranchOnly: false,
         downDepth: 1,
         topDepth: 1,
@@ -167,11 +167,11 @@ export class AppComponent {
         centerStrength: 0.1
       }));
 
-      series.get("colors")?.setAll({
+      this.friendsSeries.get("colors")?.setAll({
         step: 2
       });
 
-      series.links.template.set("strength", 0.5);
+      this.friendsSeries.links.template.set("strength", 0.5);
     }
 
     let data = {
@@ -194,12 +194,11 @@ export class AppComponent {
       });
     });
 
-    series.data.clear();
-    series.data.setAll([data]);
+    this.friendsSeries.data.clear();
+    this.friendsSeries.data.setAll([data]);
+    this.friendsSeries.set("selectedDataItem", this.friendsSeries.dataItems[0]);
 
-    series.set("selectedDataItem", series.dataItems[0]);
-
-    series.appear(320, 100);
+    this.friendsSeries.appear(320, 100);
   }
 
   ngAfterViewInit() {
