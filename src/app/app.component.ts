@@ -1,4 +1,4 @@
-import {Component, ViewChild, ViewEncapsulation} from '@angular/core';
+import {Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation} from '@angular/core';
 import {MatPaginator} from "@angular/material/paginator";
 import {MatTableDataSource} from "@angular/material/table";
 import {MatSort} from "@angular/material/sort";
@@ -30,7 +30,7 @@ export interface Professions {
   styleUrls: ['./app.component.scss'],
   encapsulation: ViewEncapsulation.None
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'axa-app';
 
   displayedColumns: string[] = ['id', 'name', 'age', 'height', 'weight', 'hair_color', 'action'];
@@ -48,6 +48,8 @@ export class AppComponent {
   public selectedItemIndex:number = -1;
   public professions: Professions[] = [];
   private friendsSeries:any = {};
+
+  private _subscriptions:any = [];
 
   constructor(private http: HttpClient) {
     this.dataSource = new MatTableDataSource();
@@ -85,14 +87,14 @@ export class AppComponent {
   getData() {
     const url = 'https://raw.githubusercontent.com/rrafols/mobile_test/master/data.json';
     try {
-      this.http.get(url).subscribe((res:any) => {
+      this._subscriptions.push(this.http.get(url).subscribe((res:any) => {
         this.data = res.Brastlewark;
         this.dataSource = new MatTableDataSource(this.data);
         this.dataSource.paginator = this.paginator;
         this.dataSource.sort = this.sort;
 
         this.preloadingImages();
-      })
+      }));
     } catch (e) {
       console.error(e);
     }
@@ -110,9 +112,7 @@ export class AppComponent {
     });
     // preload images from uniqImages
     for (let key in uniqImages) {
-      try {
-        this.http.get(key).subscribe((res:any) => {}).unsubscribe();
-      } catch (e) {}
+      this.http.get(key).subscribe().unsubscribe();
     }
   }
 
@@ -194,7 +194,7 @@ export class AppComponent {
       });
     });
 
-    this.friendsSeries.data.clear();
+    this.friendsSeries.data.setAll([]);
     this.friendsSeries.data.setAll([data]);
     this.friendsSeries.set("selectedDataItem", this.friendsSeries.dataItems[0]);
 
@@ -213,6 +213,12 @@ export class AppComponent {
     if (this.dataSource.paginator) {
       this.dataSource.paginator.firstPage();
     }
+  }
+
+  ngOnDestroy(): void {
+    this._subscriptions.forEach((item:any) => {
+      item.unsubscribe();
+    });
   }
 }
 
